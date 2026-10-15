@@ -22,13 +22,13 @@ async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     print("Client connected")
     try:
-    while True:
-        # Wait for message from client
-        data = await websocket.receive_text()
-        print(f"Received from client: {data}")
-        # Echo back (you can process/transform here)
-        response = f"Server echo: {data}"
-    await websocket.send_text(response)
+        while True:
+            # Wait for message from client
+            data = await websocket.receive_text()
+            print(f"Received from client: {data}")
+            # Echo back (you can process/transform here)
+            response = f"Server echo: {data}"
+            await websocket.send_text(response)
     except WebSocketDisconnect:
         print("Client disconnected")
     except Exception as e:
