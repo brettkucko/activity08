@@ -1,39 +1,41 @@
-
+import json
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.middleware.cors import CORSMiddleware
+
 app = FastAPI()
-# (Optional) CORS for normal HTTP calls – not required for WebSocket itself
-origins = ["*"]
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+
+class ConnectionManager:
+    def __init__(self):
+        self.active: list[WebSocket] = []
+
+    async def connect(self, ws: WebSocket):
+        await ws.accept()
+        self.active.append(ws)
+
+    def disconnect(self, ws: WebSocket):
+        if ws in self.active:
+            self.active.remove(ws)
+
+    async def broadcast(self, message: dict):
+        for ws in list(self.active):
+            try:
+                await ws.send_text(json.dumps(message))
+            except Exception:
+                self.disconnect(ws)
+
+manager = ConnectionManager()
 
 @app.get("/")
-async def root():
-    return {"message": "FastAPI WebSocket server is running"}
+def root():
+    return {"status": "Chat server running", "clients": len(manager.active)}
 
-@app.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
-    # Accept incoming WebSocket connection
-    await websocket.accept()
-    print("Client connected")
+@app.websocket("/ws/{username}")
+async def chat(websocket: WebSocket, username: str):
+    await manager.connect(websocket)
+    await manager.broadcast({"user": "System", "text": f"{username} joined"})
     try:
         while True:
-            # Wait for message from client
-            data = await websocket.receive_text()
-            print(f"Received from client: {data}")
-            # Echo back (you can process/transform here)
-            response = f"Server echo: {data}"
-            await websocket.send_text(response)
+            text = await websocket.receive_text()
+            await manager.broadcast({"user": username, "text": text})
     except WebSocketDisconnect:
-        print("Client disconnected")
-    except Exception as e:
-        print("Unexpected error:", e)
-        try:
-            await websocket.close()
-        except:
-            pass
+        manager.disconnect(websocket)
+        await manager.broadcast({"user": "System", "text": f"{username} left"})
