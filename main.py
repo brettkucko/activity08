@@ -35,7 +35,7 @@ async def chat(websocket: WebSocket, username: str):
     try:
         while True:
             text = await websocket.receive_text()
-            await manager.broadcast({"user": username, "text": text})  # to everyone
+            await manager.broadcast({"user": username, "text": text})
     except WebSocketDisconnect:
         manager.disconnect(websocket)
         await manager.broadcast({"user": "System", "text": f"{username} left"})
